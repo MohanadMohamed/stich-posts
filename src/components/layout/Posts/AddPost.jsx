@@ -1,31 +1,27 @@
 import React, { useState } from 'react'
 import { Avatar, Button, Textarea } from '@heroui/react'
-import axios from 'axios'
+import { dataClient } from '../../../data/client.js'
+import { useDemoData } from '../../../hooks/useDemoData.js'
 
 export default function AddPost({ onPostAdded }) {
 
+    const demo = useDemoData()
+    const me = demo?.users.find(user => user._id === demo.currentUserId)
+    const [error, setError] = useState('')
     const [body, setBody] = useState('')
     const [isLoading, setIsLoading] = useState(false)
 
     async function handleAddPost() {
-        if (!body.trim()) return
+        if (!body.trim() || isLoading) return
         try {
             setIsLoading(true)
-            const formData = new FormData()
-            formData.append('body', body)
-            formData.append('privacy', 'public')
-
-            await axios.request({
-                method: "POST",
-                url: "https://route-posts.routemisr.com/posts",
-                headers: { Token: localStorage.getItem('userToken') },
-                data: formData
-            })
+            setError('')
+            await dataClient.createPost(body)
 
             setBody('')
             onPostAdded?.()
         } catch (error) {
-            console.log(error.message)
+            setError(error.response?.data?.message || error.message)
         } finally {
             setIsLoading(false)
         }
@@ -34,10 +30,11 @@ export default function AddPost({ onPostAdded }) {
     return (
         <div className="bg-slate-800 border border-white/10 rounded-2xl shadow-xl w-full p-5 flex flex-col gap-4">
             <div className="flex gap-3 items-center">
-                <Avatar name="Me" size="sm" isBordered classNames={{ base: "border-indigo-400/50 shrink-0" }} />
+                <Avatar name={me?.name || "Me"} size="sm" isBordered classNames={{ base: "border-indigo-400/50 shrink-0" }} />
                 <p className="text-slate-400 text-sm">What's on your mind?</p>
             </div>
             <Textarea
+                aria-label="Post text"
                 placeholder="Write something..."
                 value={body}
                 onValueChange={setBody}
@@ -47,6 +44,7 @@ export default function AddPost({ onPostAdded }) {
                     inputWrapper: "bg-white/5 border border-white/10 hover:border-indigo-400/50 focus-within:border-indigo-400",
                 }}
             />
+            {error && <p role="alert" className="text-rose-300 text-sm">{error}</p>}
             <div className="flex justify-end">
                 <Button
                     onPress={handleAddPost}

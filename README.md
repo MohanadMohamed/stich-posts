@@ -14,7 +14,8 @@ A modern social media web application built with React, featuring a clean dark U
 - ✍️ **Create Posts** — Share your thoughts with text and image support
 - 💬 **Comments** — Facebook-style comments with live updates
 - ❤️ **Likes** — Like/unlike posts instantly
-- 🔒 **Protected Routes** — Secure pages accessible only to authenticated users
+- 🧪 **Demo Mode** — Explore sample posts and a profile without an account
+- 🔒 **Protected Routes** — Support signed-in sessions and isolated local demos
 - 📱 **Responsive Design** — Fully responsive across all screen sizes
 - 🌙 **Dark Theme** — Sleek dark UI with glass morphism effects
 
@@ -55,6 +56,51 @@ npm run dev
 ```
 
 The app will be running at `http://localhost:5173`
+
+## Demo Mode
+
+Select **Try Demo** on `/login` to explore as Alex Morgan. Create text posts,
+like/unlike posts, and add comments in the feed or post-details screen. The
+profile shows Alex's posts, including new ones. The **Demo Mode** banner stays
+visible throughout the demo and provides **Exit demo**.
+
+Demo data is fictional and stored under `stich.demoData.v1` in localStorage.
+`stich.demoMode` preserves the active mode across refreshes, including direct
+visits to `/profile` and `/posts/:postId`. Exiting keeps demo content for the next
+visit and returns guests to Login. A pre-existing real session, if present, is
+preserved and resumes on exit. Demo data never becomes part of that account.
+To start over, remove `stich.demoData.v1` from browser storage and reload.
+
+The demo uses the same components as the signed-in app. `src/data/client.js`
+selects the demo store before constructing any authenticated request. All new
+application data operations should go through that client. `src/data/session.js`
+is the shared source of truth for route guards and request authorization;
+Demo Mode takes precedence over any stored token. No credentials or backend
+changes are needed.
+
+The demo store validates saved data and reseeds corrupt or outdated snapshots.
+If saving fails, interactions continue in memory and the banner reports that
+changes will not survive a reload. Browser storage must be enabled to persist
+the demo session. Existing placeholder controls (edit/delete/share/report and
+comment likes/replies) are disabled in the demo. Signed-in post likes retain
+their existing optimistic, component-local behavior.
+
+### Verification
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+The tests cover demo persistence, data validation, missing posts, blank inputs,
+storage failures, session transitions, zero network calls in demo mode (even
+with a stored token), and the authenticated request contracts.
+
+Browser smoke check: open Login, enter the demo, create a post, like it, add a
+comment, open its details, refresh, then visit Profile. Check that the post,
+like, and comment persist. Exit the demo and confirm protected URLs redirect
+to Login. Re-entering the demo should restore your local changes.
 
 ## 🔑 Environment
 

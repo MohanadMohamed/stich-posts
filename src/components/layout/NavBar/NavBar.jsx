@@ -8,11 +8,11 @@ import {
     DropdownItem
 } from "@heroui/react";
 import { Link, useNavigate } from 'react-router-dom';
-import { authContext } from '../../../context/AuthContext';
+import { authContext } from '../../../context/authContext';
 
 export default function NavBar() {
     const navigate = useNavigate();
-    const { token, removeToken } = useContext(authContext);
+    const { hasAccess, isDemo, removeToken } = useContext(authContext);
 
     function logOut() {
         removeToken();
@@ -52,7 +52,7 @@ export default function NavBar() {
 
             {/* Auth Buttons */}
             <NavbarContent justify="end" className="gap-2">
-                {token && <NavbarItem>
+                {hasAccess && <NavbarItem>
                     <Dropdown placement="bottom-end">
                         <DropdownTrigger>
                             <Avatar
@@ -63,9 +63,9 @@ export default function NavBar() {
                                     base: "border-indigo-400/50",
                                 }}
                                 color="secondary"
-                                name="Jason Hughes"
+                                name={isDemo ? "Alex Morgan" : "My account"}
                                 size="sm"
-                                src="https://i.pravatar.cc/150?u=a042581f4e29026704d"
+                                aria-label="Open account menu"
                             />
                         </DropdownTrigger>
                         <DropdownMenu
@@ -76,22 +76,18 @@ export default function NavBar() {
                             }}
                         >
                             <DropdownItem key="profile" className="h-14 gap-2 opacity-100 cursor-default">
-                                <p className="text-slate-400 text-xs">Signed in as</p>
-                                <p className="text-white font-semibold text-sm">zoey@example.com</p>
+                                <p className="text-slate-400 text-xs">{isDemo ? "Exploring as" : "My account"}</p>
+                                <p className="text-white font-semibold text-sm">{isDemo ? "Alex Morgan" : "View your profile"}</p>
                             </DropdownItem>
-                            <DropdownItem key="settings" className="text-slate-300 hover:text-white">
-                                My Settings
-                            </DropdownItem>
-                            <DropdownItem key="profile_page" className="text-slate-300 hover:text-white">
+
+                            <DropdownItem onPress={() => navigate('/profile')} key="profile_page" className="text-slate-300 hover:text-white">
                                 Profile
                             </DropdownItem>
-                            <DropdownItem key="logout" color="danger" onClick={()=>logOut()} className="text-red-400 hover:text-red-300">
-                                Log Out
-                            </DropdownItem>
+                            {!isDemo && <DropdownItem key="logout" color="danger" onPress={logOut} className="text-red-400 hover:text-red-300">Log Out</DropdownItem>}
                         </DropdownMenu>
                     </Dropdown>
                 </NavbarItem>}
-                {!token && <><NavbarItem>
+                {!hasAccess && <><NavbarItem>
                     <Link
                         to="/login"
                         className="text-slate-400 hover:text-white transition-colors text-sm px-3 py-1.5"

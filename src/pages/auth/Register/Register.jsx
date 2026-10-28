@@ -43,11 +43,11 @@ export default function Register() {
       } else {
         setSuccessMsg("Register done successfully!")
         timeOut = setTimeout(() => {
-          navigate('/auth/login')
+          navigate('/login')
         }, 3000)
       }
     } catch (error) {
-      setApiError(error.response.data.message)
+      setApiError(error.response?.data?.message || 'Unable to register. Please try again.')
     }
   }
 

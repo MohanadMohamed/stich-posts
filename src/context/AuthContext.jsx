@@ -1,25 +1,14 @@
-import { createContext, useState } from "react";
-
-export const authContext = createContext()
+import { useSyncExternalStore } from 'react'
+import { authContext as AuthContext } from './authContext.js'
+import { getSession, subscribeSession, saveToken, removeToken, enterDemo, exitDemo } from '../data/session.js'
 
 export default function AuthProvider({ children }) {
-    const [token, setToken] = useState(localStorage.getItem('userToken')
-    )
-
-    function saveToken(token) {
-        localStorage.setItem("userToken", token)
-        setToken(token)
+    const session = useSyncExternalStore(subscribeSession, getSession)
+    const value = {
+        token: session.isDemo ? null : session.token,
+        isDemo: session.isDemo,
+        hasAccess: session.isDemo || Boolean(session.token),
+        saveToken, removeToken, enterDemo, exitDemo,
     }
-
-    function removeToken() {
-        localStorage.removeItem("userToken");
-        setToken(null)
-    }
-
-    return (
-        <authContext.Provider value={{ token, saveToken,removeToken }}>
-            {children}
-        </authContext.Provider>
-    )
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-

@@ -1,85 +1,67 @@
-import React, { useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
     Card, CardHeader, CardBody, CardFooter,
     Avatar, Divider, Chip, Spinner,
     Dropdown, DropdownTrigger, DropdownMenu, DropdownItem,
-} from "@heroui/react"
-import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
+} from '@heroui/react'
+import { Link, useNavigate } from 'react-router-dom'
+import { dataClient } from '../../../data/client.js'
+import { useDemoData } from '../../../hooks/useDemoData.js'
+import { useResource } from '../../../hooks/useResource.js'
 
-export default function PostCard({ post }) {
-
+export default function PostCard({ post: initialPost, expanded = false }) {
     const navigate = useNavigate()
-
-    const [liked, setLiked] = useState(false)
-    const [likesCount, setLikesCount] = useState(post.likesCount || 0)
-    const [showComments, setShowComments] = useState(false)
-    const [comments, setComments] = useState([])
+    const demo = useDemoData()
+    const post = demo?.posts.find(item => item._id === initialPost._id) || initialPost
+    const me = demo?.users.find(user => user._id === demo.currentUserId)
+    const [liveLiked, setLiveLiked] = useState(false)
+    const [liveLikesCount, setLiveLikesCount] = useState(post.likesCount || 0)
+    const liked = demo ? post.liked : liveLiked
+    const likesCount = demo ? post.likesCount : liveLikesCount
+    const [showComments, setShowComments] = useState(expanded)
+    const [addedComments, setAddedComments] = useState([])
     const [newComment, setNewComment] = useState('')
     const [isCommenting, setIsCommenting] = useState(false)
-    const [isLoadingComments, setIsLoadingComments] = useState(false)
+    const [error, setError] = useState('')
+    const loadComments = useCallback(() => showComments ? dataClient.getComments(post._id) : Promise.resolve([]), [showComments, post._id])
+    const { data: loadedComments, error: commentsError, isLoading: isLoadingComments } = useResource(loadComments)
+    const comments = demo ? post.comments : [...addedComments, ...(loadedComments || []).filter(comment => !addedComments.some(added => added._id === comment._id))]
+    const commentsCount = demo ? post.commentsCount : (post.commentsCount || 0) + addedComments.length
 
     function handleLike() {
-        setLiked(!liked)
-        setLikesCount(liked ? likesCount - 1 : likesCount + 1)
-    }
-
-    async function fetchComments() {
-        try {
-            setIsLoadingComments(true)
-            const { data } = await axios.request({
-                method: "GET",
-                url: `https://route-posts.routemisr.com/posts/${post._id}/comments`,
-                headers: { Token: localStorage.getItem('userToken') },
-            })
-            setComments(data.data.comments)
-        } catch (error) {
-            console.log(error.message)
-        } finally {
-            setIsLoadingComments(false)
+        if (demo) {
+            dataClient.toggleDemoLike(post._id)
+        } else {
+            // Preserve the existing optimistic like behavior for signed-in users.
+            setLiveLiked(!liveLiked)
+            setLiveLikesCount(liveLiked ? liveLikesCount - 1 : liveLikesCount + 1)
         }
-    }
-
-    function handleToggleComments() {
-        if (!showComments && comments.length === 0) {
-            fetchComments()
-        }
-        setShowComments(!showComments)
     }
 
     async function handleAddComment() {
-        if (!newComment.trim()) return
+        if (!newComment.trim() || isCommenting) return
         try {
             setIsCommenting(true)
-            const formData = new FormData()
-            formData.append('content', newComment)
-
-            const { data } = await axios.request({
-                method: "POST",
-                url: `https://route-posts.routemisr.com/posts/${post._id}/comments`,
-                headers: { Token: localStorage.getItem('userToken') },
-                data: formData
-            })
-
-            // ✅ أضف الـ comment الجديد على طول من غير ما تعمل refetch
-            setComments(prev => [data.data.comment, ...prev])
+            setError('')
+            const comment = await dataClient.createComment(post._id, newComment)
+            setAddedComments(previous => [comment, ...previous])
             setNewComment('')
         } catch (error) {
-            console.log(error.message)
+            setError(error.response?.data?.message || error.message)
         } finally {
             setIsCommenting(false)
         }
     }
 
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
+    function handleKeyDown(event) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault()
             handleAddComment()
         }
     }
 
     return (
-        <Card className="bg-slate-800 border border-white/10 rounded-2xl shadow-xl w-full">
+        <Card as="article" aria-label={`Post by ${post.user?.name}`} className="bg-slate-800 border border-white/10 rounded-2xl shadow-xl w-full">
 
             {/* Header */}
             <CardHeader className="flex items-start justify-between gap-3 px-5 pt-5">
@@ -105,13 +87,13 @@ export default function PostCard({ post }) {
                     )}
                     <Dropdown placement="bottom-end">
                         <DropdownTrigger>
-                            <button className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
+                            <button aria-label="Post actions" className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-7 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm14 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
                                 </svg>
                             </button>
                         </DropdownTrigger>
-                        <DropdownMenu aria-label="Post Actions" classNames={{ base: "bg-slate-900 border border-white/10 rounded-xl shadow-xl" }}>
+                        <DropdownMenu disabledKeys={demo ? ["edit", "share", "report", "delete"] : []} aria-label="Post Actions" classNames={{ base: "bg-slate-900 border border-white/10 rounded-xl shadow-xl" }}>
                             <DropdownItem key="edit" className="text-slate-300" textValue="Edit Post">✏️ Edit Post</DropdownItem>
                             <DropdownItem key="share" className="text-slate-300" textValue="Share Post">🔗 Share Post</DropdownItem>
                             <DropdownItem key="report" className="text-slate-300" textValue="Report">🚩 Report</DropdownItem>
@@ -124,15 +106,16 @@ export default function PostCard({ post }) {
             <Divider className="bg-white/10 my-1" />
 
             {/* Body */}
-            <CardBody className="px-5 py-4 cursor-pointer" onClick={() => navigate(`/posts/${post._id}`)}>
+            <CardBody onClick={expanded ? undefined : () => navigate(`/posts/${post._id}`)} className="px-5 py-4">
                 {post.body && post.body !== 'null' && (
-                    <p className="text-slate-300 text-sm leading-relaxed">{post.body}</p>
+                    <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap break-words">{post.body}</p>
                 )}
                 {post.image && (
                     <img src={post.image} alt="post" className="mt-3 rounded-xl w-full object-cover max-h-72" />
                 )}
             </CardBody>
 
+            {!expanded && <div className="px-5 pb-3"><Link to={`/posts/${post._id}`} className="text-indigo-300 hover:text-white text-xs">View post</Link></div>}
             {/* Top Comment */}
             {post.topComment && !showComments && (
                 <>
@@ -161,7 +144,7 @@ export default function PostCard({ post }) {
             <CardFooter className="px-5 py-3 flex items-center justify-between">
                 <div className="flex gap-4">
                     {/* Like */}
-                    <button onClick={handleLike} className={`flex items-center gap-1.5 transition-colors ${liked ? 'text-rose-400' : 'text-slate-400 hover:text-rose-400'}`}>
+                    <button aria-label={liked ? "Unlike post" : "Like post"} aria-pressed={liked} onClick={handleLike} className={`flex items-center gap-1.5 transition-colors ${liked ? 'text-rose-400' : 'text-slate-400 hover:text-rose-400'}`}>
                         <svg
                             className={`w-4 h-4 transition-all ${liked ? 'fill-rose-400 scale-110' : ''}`}
                             fill={liked ? 'currentColor' : 'none'}
@@ -176,7 +159,7 @@ export default function PostCard({ post }) {
 
                     {/* Comment toggle */}
                     <button
-                        onClick={handleToggleComments}
+                        aria-label="Comments" aria-expanded={showComments} onClick={() => setShowComments(!showComments)}
                         className={`flex items-center gap-1.5 transition-colors ${showComments ? 'text-indigo-400' : 'text-slate-400 hover:text-indigo-400'}`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,12 +167,12 @@ export default function PostCard({ post }) {
                                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                             />
                         </svg>
-                        <span className="text-xs">{post.commentsCount || 0}</span>
+                        <span className="text-xs">{commentsCount}</span>
                     </button>
                 </div>
 
                 {/* Share */}
-                <button className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-400 transition-colors">
+                <button disabled={Boolean(demo)} title={demo ? "Sharing is unavailable in Demo Mode" : undefined} className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-400 disabled:opacity-40 transition-colors">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
                             d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
@@ -207,17 +190,19 @@ export default function PostCard({ post }) {
 
                         {/* Add Comment Input  */}
                         <div className="flex gap-3 items-center">
-                            <Avatar name="Me" size="sm" isBordered classNames={{ base: "border-indigo-400/50 shrink-0" }} />
+                            <Avatar name={me?.name || "Me"} size="sm" isBordered classNames={{ base: "border-indigo-400/50 shrink-0" }} />
                             <div className="flex-1 flex items-center gap-2 bg-slate-700/50 rounded-full px-4 py-2">
                                 <input
                                     type="text"
+                                    aria-label="Write a comment"
                                     placeholder="Write a comment..."
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-slate-400"
+                                    className="min-w-0 flex-1 bg-transparent text-white text-sm outline-none placeholder:text-slate-400"
                                 />
                                 <button
+                                    aria-label="Send comment"
                                     onClick={handleAddComment}
                                     disabled={!newComment.trim() || isCommenting}
                                     className="text-indigo-400 hover:text-indigo-300 disabled:opacity-30 transition-colors"
@@ -233,8 +218,9 @@ export default function PostCard({ post }) {
                             </div>
                         </div>
 
+                        {(error || commentsError) && <p role="alert" className="text-rose-300 text-sm">{error || commentsError}</p>}
                         {/* Comments List */}
-                        {isLoadingComments ? (
+                        {!demo && isLoadingComments ? (
                             <div className="flex justify-center py-4">
                                 <Spinner color="secondary" size="sm" />
                             </div>
@@ -254,8 +240,8 @@ export default function PostCard({ post }) {
                                                 <p className="text-slate-300 text-sm mt-0.5">{comment.content}</p>
                                             </div>
                                             <div className="flex gap-3 px-2">
-                                                <button className="text-slate-500 hover:text-rose-400 text-xs transition-colors">Like</button>
-                                                <button className="text-slate-500 hover:text-indigo-400 text-xs transition-colors">Reply</button>
+                                                <button disabled={Boolean(demo)} title={demo ? "Comment likes are unavailable in Demo Mode" : undefined} className="text-slate-500 hover:text-rose-400 disabled:opacity-40 text-xs transition-colors">Like</button>
+                                                <button disabled={Boolean(demo)} title={demo ? "Replies are unavailable in Demo Mode" : undefined} className="text-slate-500 hover:text-indigo-400 disabled:opacity-40 text-xs transition-colors">Reply</button>
                                                 <span className="text-slate-600 text-xs">{new Date(comment.createdAt).toLocaleDateString()}</span>
                                             </div>
                                         </div>

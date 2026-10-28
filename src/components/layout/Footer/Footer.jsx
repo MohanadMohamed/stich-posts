@@ -1,11 +1,11 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useContext } from 'react'
-import { authContext } from '../../../context/AuthContext'
+import { authContext } from '../../../context/authContext'
 
 
 export default function Footer() {
-    const { token } = useContext(authContext)
+    const { hasAccess } = useContext(authContext)
 
     return (
         <footer className="bg-slate-900/80 backdrop-blur-xl border-t border-white/10 py-5 px-6">
@@ -28,7 +28,7 @@ export default function Footer() {
                     <Link to="/profile" className="text-slate-400 hover:text-white transition-colors text-xs">Profile</Link>
                     
                     
-                    {!token && <>
+                    {!hasAccess && <>
                         <Link to="/login" className="text-slate-400 hover:text-white transition-colors text-xs">Login</Link>
                         <Link to="/register" className="text-slate-400 hover:text-white transition-colors text-xs">Register</Link>
                     </>}

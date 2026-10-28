@@ -7,8 +7,7 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginSchema } from '../../../schemas/login.schema';
 import AppButton from '../../../components/shared/AppButton/AppButton';
-import NavBar from '../../../components/layout/NavBar/NavBar';
-import { authContext } from '../../../context/AuthContext';
+import { authContext } from '../../../context/authContext';
 
 let timeOut = 0;
 const API_URL = 'https://route-posts.routemisr.com/users/signin';
@@ -19,7 +18,7 @@ export default function Login() {
     const [successMsg, setSuccessMsg] = useState('')
 
     const navigate = useNavigate()
-    const { saveToken } = useContext(authContext);
+    const { saveToken, enterDemo } = useContext(authContext);
     const {
         register,
         handleSubmit,
@@ -48,7 +47,7 @@ export default function Login() {
                 }, 1000)
             }
         } catch (error) {
-            setApiError(error.response.data.message)
+            setApiError(error.response?.data?.message || 'Unable to sign in. Please try again.')
         }
     }
 
@@ -119,6 +118,16 @@ export default function Login() {
                     >
                         Login
                     </AppButton>
+
+                    <AppButton
+                        type="button"
+                        isDisabled={isSubmitting}
+                        onPress={() => { enterDemo(); navigate('/', { replace: true }) }}
+                        className="w-full border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 rounded-xl"
+                    >
+                        Try Demo
+                    </AppButton>
+                    <p className="text-center text-slate-400 text-xs">Explore with sample data. No account needed.</p>
 
                     {/* Register link */}
                     <p className="text-center text-slate-400 text-sm mt-2">
