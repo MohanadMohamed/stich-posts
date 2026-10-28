@@ -106,6 +106,29 @@ to Login. Re-entering the demo should restore your local changes.
 
 This project uses the [Route Posts API](https://route-posts.routemisr.com) for backend services.
 
+### Signup and login
+
+The API base URL is shared in `src/data/apiConfig.js`. `src/data/authClient.js`
+sends public JSON requests to `/users/signup` and `/users/signin`, handles the
+API's `success` / `message` / `data` response envelope, and blocks auth requests
+while Demo Mode is active. Signup sends only `name`, `username`, `email`,
+`password`, `rePassword`, `dateOfBirth`, and `gender`.
+
+Signup accepts full names and mixed-case usernames, matching the
+[official signup example](https://documenter.getpostman.com/view/5709532/2sBXcBnNAq).
+Dates stay as valid `YYYY-MM-DD` strings; the previous year-only age cutoff
+was not part of the documented contract. The form validates as fields change,
+requires matching passwords, and resets through React Hook Form.
+
+Successful signup signs the visitor in and redirects to `/`. Both auth flows
+save the returned token under `userToken` and basic profile fields under
+`userData`, clear the demo flag, and restore the session after refresh.
+Passwords are never cached. Logout removes both stored token and profile.
+HTTP 400/409 responses, network failures, and incomplete success responses
+produce readable errors without creating a local authenticated session.
+
+Auth regression tests use mocked responses only; they do not create accounts.
+
 ## 📸 Screenshots
 
 > Coming soon

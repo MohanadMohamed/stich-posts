@@ -1,16 +1,23 @@
 import axios from 'axios'
 import { demoStore } from './demoStore.js'
-import { getSession } from './session.js'
-
-const BASE_URL = 'https://route-posts.routemisr.com'
+import { getSession, removeToken } from './session.js'
+import { API_BASE_URL } from './apiConfig.js'
 
 // Select the local store before constructing requests or attaching credentials.
-export function createDataClient(session = getSession, demo = demoStore, request = axios.request) {
+export function createDataClient(session = getSession, demo = demoStore, request = axios.request, onUnauthorized = removeToken) {
     async function live(config) {
         const { token, isDemo } = session()
         if (isDemo || !token) throw new Error('Please sign in to continue.')
-        const { data } = await request({ ...config, url: BASE_URL + config.url, headers: { Token: token } })
-        return data.data
+        try {
+            const { data } = await request({ ...config, url: API_BASE_URL + config.url, headers: { Token: token } })
+            return data.data
+        } catch (error) {
+            const current = session()
+            // A late failure from an old request must not log out another user
+            // or interrupt Demo Mode, which can retain the original token.
+            if (error.response?.status === 401 && !current.isDemo && current.token === token) onUnauthorized()
+            throw error
+        }
     }
 
     return {

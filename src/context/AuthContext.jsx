@@ -6,6 +6,7 @@ export default function AuthProvider({ children }) {
     const session = useSyncExternalStore(subscribeSession, getSession)
     const value = {
         token: session.isDemo ? null : session.token,
+        user: session.isDemo ? null : session.user,
         isDemo: session.isDemo,
         hasAccess: session.isDemo || Boolean(session.token),
         saveToken, removeToken, enterDemo, exitDemo,

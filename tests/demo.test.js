@@ -114,3 +114,35 @@ test('authenticated operations retain API URLs, token headers, multipart bodies 
     assert.equal(calls[4].data.get('content'), 'Hello back')
     assert.throws(() => client.toggleDemoLike(post._id), /not active/)
 })
+
+test('a 401 clears the current rejected session, while other errors preserve it', async () => {
+    for (const status of [401, 403, 500]) {
+        let session = { token: 'test-only-expired-token', isDemo: false }
+        let cleared = 0
+        const error = { response: { status, data: { message: 'Simulated error' } } }
+        const client = createDataClient(() => session, fixture().store, async () => { throw error }, () => {
+            cleared++
+            session = { token: null, isDemo: false }
+        })
+        await assert.rejects(client.getPosts(), caught => caught === error)
+        assert.equal(cleared, status === 401 ? 1 : 0)
+        assert.equal(Boolean(session.token), status !== 401)
+    }
+})
+
+test('a late 401 cannot clear a newer account, a logged-out session, or Demo Mode', async () => {
+    for (const next of [
+        { token: 'test-only-new-token', isDemo: false },
+        { token: null, isDemo: false },
+        { token: 'test-only-original-token', isDemo: true },
+    ]) {
+        let session = { token: 'test-only-original-token', isDemo: false }
+        let fail
+        const client = createDataClient(() => session, fixture().store, () => new Promise((_, reject) => { fail = reject }), () => assert.fail('Must preserve the newer session'))
+        const pending = client.getPosts()
+        session = next
+        fail({ response: { status: 401 } })
+        await assert.rejects(pending)
+        assert.equal(session, next)
+    }
+})

@@ -1,21 +1,17 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useState } from 'react'
 import { Alert, Input } from "@heroui/react";
 import { useForm } from 'react-hook-form';
 import ValidationMassege from '../../../components/shared/ValidationMessage/ValidationMassege';
 import { zodResolver } from '@hookform/resolvers/zod';
-import axios from 'axios';
+import { authClient, getAuthErrorMessage } from '../../../data/authClient.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginSchema } from '../../../schemas/login.schema';
 import AppButton from '../../../components/shared/AppButton/AppButton';
 import { authContext } from '../../../context/authContext';
 
-let timeOut = 0;
-const API_URL = 'https://route-posts.routemisr.com/users/signin';
-
 export default function Login() {
 
     const [apiError, setApiError] = useState('')
-    const [successMsg, setSuccessMsg] = useState('')
 
     const navigate = useNavigate()
     const { saveToken, enterDemo } = useContext(authContext);
@@ -25,29 +21,18 @@ export default function Login() {
         formState: { isValid, errors, touchedFields, isSubmitting },
     } = useForm({
         resolver: zodResolver(loginSchema),
+        mode: 'onChange',
+        defaultValues: { email: '', password: '' },
     });
-
-    useEffect(() => {
-        return () => {
-            clearTimeout(timeOut)
-        }
-    }, [])
 
     async function onSubmitLogin(data) {
         try {
             setApiError('')
-            const res = await axios.post(API_URL, data);
-            if (res.error) {
-                throw new Error(res.error)
-            } else {
-                setSuccessMsg("Login done successfully!")
-                saveToken(res.data.data.token)
-                timeOut = setTimeout(() => {
-                    navigate('/')
-                }, 1000)
-            }
+            const { token, user } = await authClient.signin(data)
+            saveToken(token, user)
+            navigate('/', { replace: true })
         } catch (error) {
-            setApiError(error.response?.data?.message || 'Unable to sign in. Please try again.')
+            setApiError(getAuthErrorMessage(error, 'signin'))
         }
     }
 
@@ -106,13 +91,12 @@ export default function Login() {
 
                     {/* Alerts */}
                     {apiError && <Alert color="danger" title={apiError} />}
-                    {successMsg && <Alert color="success" title={successMsg} />}
 
                     {/* Button */}
                     <AppButton
                         type="submit"
                         isLoading={isSubmitting}
-                        isDisabled={!isValid}
+                        isDisabled={!isValid || isSubmitting}
                         color="primary"
                         className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-xl py-3 transition-all duration-200 shadow-lg shadow-indigo-500/25 mt-2"
                     >
